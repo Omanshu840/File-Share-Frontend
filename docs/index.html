@@ -1,91 +1,62 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple File Share</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    .container { margin-bottom: 30px; }
-    #fileList { margin-top: 20px; }
-    .file-item { padding: 10px; border-bottom: 1px solid #eee; }
-    .file-item:hover { background-color: #f5f5f5; }
-  </style>
+    <title>GitHub File Uploader</title>
 </head>
 <body>
-  <h1>Simple File Share</h1>
-  
-  <div class="container">
-    <h2>Upload a ZIP File</h2>
-    <input type="file" id="fileInput" accept=".zip">
-    <button onclick="uploadFile()">Upload</button>
-    <p id="uploadStatus"></p>
-  </div>
+    <h1>Upload Files to GitHub</h1>
+    <input type="file" id="fileInput">
+    <button onclick="uploadToGitHub()">Upload</button>
+    <p id="status"></p>
 
-  <div class="container">
-    <h2>Download Files</h2>
-    <div id="fileList">Loading files...</div>
-  </div>
+    <script>
+        async function uploadToGitHub() {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+            
+            if (!fileInput.files.length) {
+                status.textContent = "Please select a file first!";
+                return;
+            }
 
-  <script>
-    // Load files when page loads
-    document.addEventListener('DOMContentLoaded', loadFiles);
+            const file = fileInput.files[0];
+            const reader = new FileReader();
 
-    const backendUrl = 'https://file-share-backend-c26z.onrender.com';
+            reader.onload = async (e) => {
+                const content = e.target.result.split(',')[1]; // Base64 encoded
+                const filename = file.name;
+                const repoOwner = "omahawar840";
+                const repoName = "File-Share-Frontend";
+                const branch = "main";
+                const filePath = `uploads/${filename}`;
 
-    async function loadFiles() {
-      try {
-        const response = await fetch(`${backendUrl}/files`);
-        const files = await response.json();
-        
-        const fileList = document.getElementById('fileList');
-        if (files.length === 0) {
-          fileList.innerHTML = '<p>No files available for download.</p>';
-          return;
+                const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token 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`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: `Upload ${filename}`,
+                        content: content,
+                        branch: branch,
+                    }),
+                });
+
+                if (response.ok) {
+                    status.textContent = "File uploaded successfully!";
+                    const data = await response.json();
+                    const downloadUrl = data.content.download_url;
+                    status.innerHTML += `<br><a href="${downloadUrl}" target="_blank">Download File</a>`;
+                } else {
+                    status.textContent = "Error uploading file.";
+                }
+            };
+
+            reader.readAsDataURL(file);
         }
-
-        fileList.innerHTML = files.map(file => `
-          <div class="file-item">
-            ${file} 
-            <button onclick="downloadFile('${file}')">Download</button>
-          </div>
-        `).join('');
-      } catch (error) {
-        document.getElementById('fileList').innerHTML = 'Error loading files.';
-      }
-    }
-
-    async function uploadFile() {
-      const fileInput = document.getElementById('fileInput');
-      const status = document.getElementById('uploadStatus');
-      
-      if (!fileInput.files.length) {
-        status.textContent = 'Please select a file first.';
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('zipfile', fileInput.files[0]);
-
-      try {
-        status.textContent = 'Uploading...';
-        const response = await fetch(`${backendUrl}/upload`, {
-          method: 'POST',
-          body: formData
-        });
-
-        const result = await response.text();
-        status.textContent = result;
-        loadFiles(); // Refresh file list
-      } catch (error) {
-        status.textContent = 'Upload failed.';
-      }
-    }
-
-    function downloadFile(filename) {
-      window.location.href = `/download/${filename}`;
-    }
-  </script>
+    </script>
 </body>
 </html>
